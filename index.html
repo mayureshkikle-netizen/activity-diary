@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Activity Diary</title>
+<style>
+:root{--navy:#18324b;--bg:#f3f5f8;--ink:#1d2935;--muted:#687787;--line:#e3e8ee;--blue:#2463a6}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Arial,sans-serif;color:var(--ink)}
+header{background:var(--navy);color:white;padding:22px 18px 18px;position:sticky;top:0;z-index:2}
+h1{font-size:23px;margin:0 0 5px}header p{margin:0;color:#d4dfeb;font-size:13px}
+main{padding:14px;max-width:720px;margin:auto}.panel{background:white;border-radius:14px;padding:14px;margin-bottom:13px;box-shadow:0 2px 8px #132b4210}
+label{display:block;font-size:12px;color:var(--muted);font-weight:bold;margin:9px 0 5px}
+input,select,textarea{width:100%;border:1px solid #d5dde6;border-radius:9px;padding:12px;font-size:15px;background:white;color:var(--ink)}
+textarea{min-height:66px;resize:vertical}
+button{border:0;border-radius:9px;padding:11px 13px;font-size:14px;font-weight:bold;background:var(--blue);color:white}
+button.secondary{background:#eaf0f6;color:#23435f}button.danger{background:#fff0f0;color:#a32e2e}
+.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}.row button{flex:0 0 auto}
+h2{font-size:16px;margin:0 0 10px}.chips{display:flex;gap:7px;overflow:auto;padding:2px 0 7px}
+.chip{white-space:nowrap;background:#edf1f5;color:#34495e;border-radius:20px;padding:8px 11px;font-size:12px;border:1px solid transparent}
+.chip.active{background:#dceafa;color:#174d83;border-color:#9fc2e8}
+.entry{border:1px solid var(--line);border-radius:11px;padding:12px;margin:9px 0;background:#fff}
+.entrytop{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.entrytitle{font-weight:bold;font-size:15px;line-height:1.35;overflow-wrap:anywhere}
+.meta{font-size:12px;color:var(--muted);margin-top:7px}
+.tag{font-size:11px;padding:5px 8px;border-radius:20px;white-space:nowrap;background:#edf1f5;color:#425466}
+.open{background:#fff2d7;color:#8a5a00}.closed{background:#dff4e8;color:#17643a}.hold{background:#ececf4;color:#555579}
+.actions{display:flex;gap:7px;margin-top:10px;align-items:center}.actions select{padding:8px;font-size:12px;max-width:145px}
+.small{font-size:12px;color:var(--muted)}.empty{text-align:center;padding:25px;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{background:#f5f7fa;border-radius:10px;padding:10px;text-align:center}.stat b{display:block;font-size:20px}.stat span{font-size:11px;color:var(--muted)}
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#263b50;color:white;padding:10px 15px;border-radius:22px;display:none;z-index:5;font-size:13px}
+</style>
+<link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon-192.png"><meta name="theme-color" content="#18324b"></head>
+<body>
+<header><h1>Activity Diary</h1><p>Record once. Review by category, status or month.</p></header>
+<main>
+<section class="panel">
+  <h2 id="formTitle">Add activity</h2>
+  <label for="activity">Activity description</label>
+  <textarea id="activity" placeholder="Write your activity..."></textarea>
+  <div class="row">
+    <div><label for="category">Category</label><select id="category"></select></div>
+    <div><label for="date">Date</label><input id="date" type="date"></div>
+  </div>
+  <label for="status">Status</label>
+  <select id="status"><option>Open</option><option>Closed</option><option>On Hold</option></select>
+  <div class="row" style="margin-top:12px">
+    <button id="saveBtn" onclick="saveActivity()">+ Add activity</button>
+    <button class="secondary" id="cancelBtn" onclick="resetForm()" style="display:none">Cancel edit</button>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Monthly overview</h2>
+  <div class="row">
+    <div><label for="month">Month</label><input id="month" type="month"></div>
+    <div><label for="search">Search activity</label><input id="search" placeholder="Search words..." oninput="render()"></div>
+  </div>
+  <div class="stats" style="margin-top:12px">
+    <div class="stat"><b id="total">0</b><span>Total</span></div>
+    <div class="stat"><b id="openCount">0</b><span>Open</span></div>
+    <div class="stat"><b id="closedCount">0</b><span>Closed</span></div>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>View by category</h2>
+  <div class="chips" id="categoryFilters"></div>
+  <h2 style="margin-top:8px">Filter by status</h2>
+  <div class="chips" id="statusFilters"></div>
+  <div class="row" style="margin-top:5px">
+    <button class="secondary" onclick="exportCSV()">Export month (Excel CSV)</button>
+    <button class="secondary" onclick="clearFilters()">Clear filters</button>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="row"><h2 style="margin:0">Activities</h2><span class="small" id="resultCount" style="text-align:right">0 entries</span></div>
+  <div id="entries"></div>
+</section>
+<p class="small" style="text-align:center;padding:4px 8px 18px">Your entries are stored on this phone. Back up exported CSV files regularly.</p>
+</main>
+<div id="toast"></div>
+<script>
+const CATS=["Customer complaint","Non-conformance","Project","Task","To Do list","Home"];
+let items=JSON.parse(localStorage.getItem("activityDiaryItems")||"[]");
+let editId=null, catFilter="All", statusFilter="All";
+const $=id=>document.getElementById(id);
+const today=new Date(), iso=d=>{let x=new Date(d.getTime()-d.getTimezoneOffset()*60000);return x.toISOString().slice(0,10)};
+$("date").value=iso(today);$("month").value=iso(today).slice(0,7);
+$("category").innerHTML=CATS.map(c=>`<option>${c}</option>`).join("");
+function persist(){localStorage.setItem("activityDiaryItems",JSON.stringify(items))}
+function toast(s){let t=$("toast");t.textContent=s;t.style.display="block";setTimeout(()=>t.style.display="none",1800)}
+function resetForm(){editId=null;$("activity").value="";$("status").value="Open";$("date").value=iso(new Date());$("formTitle").textContent="Add activity";$("saveBtn").textContent="+ Add activity";$("cancelBtn").style.display="none"}
+function saveActivity(){
+ const description=$("activity").value.trim();if(!description){toast("Please enter an activity");return}
+ const data={description,category:$("category").value,date:$("date").value,status:$("status").value};
+ if(!data.date){toast("Please select a date");return}
+ if(editId){let x=items.find(i=>i.id===editId);Object.assign(x,data);toast("Activity updated")}
+ else{items.push({id:String(Date.now())+Math.random().toString(16).slice(2),...data,createdAt:new Date().toISOString()});toast("Activity added")}
+ persist();resetForm();render()
+}
+function editActivity(id){let x=items.find(i=>i.id===id);if(!x)return;editId=id;$("activity").value=x.description;$("category").value=x.category;$("date").value=x.date;$("status").value=x.status;$("formTitle").textContent="Edit activity";$("saveBtn").textContent="Save changes";$("cancelBtn").style.display="block";window.scrollTo({top:0,behavior:"smooth"})}
+function changeStatus(id,value){let x=items.find(i=>i.id===id);if(x){x.status=value;persist();render();toast("Status updated")}}
+function deleteActivity(id){if(!confirm("Delete this activity?"))return;items=items.filter(i=>i.id!==id);persist();render();toast("Activity deleted")}
+function setCat(c){catFilter=c;renderFilters();render()}
+function setStatus(s){statusFilter=s;renderFilters();render()}
+function renderFilters(){
+ $("categoryFilters").innerHTML=["All",...CATS].map(c=>`<button class="chip ${catFilter===c?'active':''}" onclick="setCat(${JSON.stringify(c)})">${c}</button>`).join("");
+ $("statusFilters").innerHTML=["All","Open","Closed","On Hold"].map(s=>`<button class="chip ${statusFilter===s?'active':''}" onclick="setStatus(${JSON.stringify(s)})">${s}</button>`).join("")
+}
+function clearFilters(){catFilter="All";statusFilter="All";$("search").value="";renderFilters();render()}
+function render(){
+ const month=$("month").value, q=$("search").value.toLowerCase();
+ const monthItems=items.filter(x=>x.date&&x.date.slice(0,7)===month);
+ $("total").textContent=monthItems.length;$("openCount").textContent=monthItems.filter(x=>x.status==="Open").length;$("closedCount").textContent=monthItems.filter(x=>x.status==="Closed").length;
+ let list=monthItems.filter(x=>(catFilter==="All"||x.category===catFilter)&&(statusFilter==="All"||x.status===statusFilter)&&(`${x.description} ${x.category}`.toLowerCase().includes(q)));
+ list.sort((a,b)=>b.date.localeCompare(a.date)||(b.createdAt||"").localeCompare(a.createdAt||""));
+ $("resultCount").textContent=list.length+" entries";
+ $("entries").innerHTML=list.length?list.map(x=>`<article class="entry">
+ <div class="entrytop"><div class="entrytitle">${escapeHTML(x.description)}</div><span class="tag ${x.status==='Open'?'open':x.status==='Closed'?'closed':'hold'}">${x.status}</span></div>
+ <div class="meta">${escapeHTML(x.date)} &nbsp;·&nbsp; ${escapeHTML(x.category)}</div>
+ <div class="actions"><select aria-label="Change status" onchange="changeStatus('${x.id}',this.value)"><option ${x.status==='Open'?'selected':''}>Open</option><option ${x.status==='Closed'?'selected':''}>Closed</option><option ${x.status==='On Hold'?'selected':''}>On Hold</option></select><button class="secondary" onclick="editActivity('${x.id}')">Edit</button><button class="danger" onclick="deleteActivity('${x.id}')">Delete</button></div>
+ </article>`).join(""):'<div class="empty">No activities match these filters.</div>';
+}
+function escapeHTML(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function exportCSV(){
+ const month=$("month").value;let rows=[["Date","Category","Activity","Status"],...items.filter(x=>x.date&&x.date.startsWith(month)).sort((a,b)=>a.date.localeCompare(b.date)).map(x=>[x.date,x.category,x.description,x.status])];
+ const csv=rows.map(r=>r.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(",")).join("\r\n");
+ const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="Activity-Diary-"+month+".csv";a.click();URL.revokeObjectURL(url);toast("Monthly CSV exported")
+}
+$("month").addEventListener("change",render);
+renderFilters();render();
+</script>
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js", {scope:"./"}).catch(()=>{});}</script></body></html>
