@@ -106,8 +106,8 @@ function deleteActivity(id){if(!confirm("Delete this activity?"))return;items=it
 function setCat(c){catFilter=c;renderFilters();render()}
 function setStatus(s){statusFilter=s;renderFilters();render()}
 function renderFilters(){
- $("categoryFilters").innerHTML=["All",...CATS].map(c=>`<button class="chip ${catFilter===c?'active':''}" onclick="setCat(${JSON.stringify(c)})">${c}</button>`).join("");
- $("statusFilters").innerHTML=["All","Open","Closed","On Hold"].map(s=>`<button class="chip ${statusFilter===s?'active':''}" onclick="setStatus(${JSON.stringify(s)})">${s}</button>`).join("")
+ $("categoryFilters").innerHTML=["All",...CATS].map(c=>`<button class="chip ${catFilter===c?'active':''}" onclick='setCat(${JSON.stringify(c)})'>${c}</button>`).join("");
+ $("statusFilters").innerHTML=["All","Open","Closed","On Hold"].map(s=>`<button class="chip ${statusFilter===s?'active':''}" onclick='setStatus(${JSON.stringify(s)})'>${s}</button>`).join("")
 }
 function clearFilters(){catFilter="All";statusFilter="All";$("search").value="";renderFilters();render()}
 function render(){
